@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            font-family: Monospace;
+            background-color: #f0f0f0;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: black;
+            opacity: 0.8;
+            color: white;
+            z-index: 1
+        }
+    </style>
+    <title>Planet</title>
+
+    <script src="https://code.jquery.com/jquery-2.2.4.js"
+            integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
+            crossorigin="anonymous"></script>
+    <script src="three.js"></script>
+    <script src="utils.js"></script>
+    <script src="axis.js"></script>
+    <script language="javascript">
+
+        var world = {
+            scene : null,
+            lights : [],
+            camera : null,
+            renderer : null,
+            raycaster : null,
+            mouse : null,
+            rotate : false
+        };
+
+        function buildCamera(scene){
+            var camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.radius = 128;
+            camera.theta = d2r(22.5);
+            camera.phi = d2r(22.5);
+            camera.scene = scene;
+
+            camera.update = function(){
+                var theta = this.theta;
+                var phi = this.phi;
+                var radius = this.radius;
+
+                this.position.x = radius * Math.sin(theta)
+                        * Math.cos(phi);
+                this.position.y = radius * Math.sin(phi);
+                this.position.z = radius * Math.cos(theta)
+                        * Math.cos(phi);
+
+                this.updateMatrix();
+                this.lookAt(this.scene.position);
+                this.updateMatrixWorld();
+            };
+
+
+            // camera control events
+
+            // begin rotation
+            $(document).mousedown(function(event){
+                camera.mouse = mouse2vec(event);
+                camera.rotate = (event.buttons & 4); //middle button
+            });
+
+            // rotate
+            $(document).mousemove(function(event){
+                event.preventDefault();
+                var mouse = mouse2vec(event);
+
+                if (camera.rotate) {
+                    var delta = mouse.clone().sub(camera.mouse);
+                    camera.theta -= delta.x;
+                    camera.phi -= delta.y;
+                    camera.update();
+                }
+
+                camera.mouse = mouse;
+            });
+
+            // end rotation
+            $(document).mouseup(function(event){
+                camera.rotate = false;
+            });
+
+            // dolly ("zoom")
+            $(document).get(0).addEventListener('mousewheel', function (e) {
+                camera.radius *= ((e.wheelDelta < 0) ? 1.05 : 0.95);
+                camera.update();
+            });
+
+            return camera;
+        }
+
+        $(document).ready(function(){
+
+            world.scene = new THREE.Scene();
+
+            // lights
+            world.scene.add(new THREE.AmbientLight(0xeeeeee, 0.001));
+
+            var light = new THREE.DirectionalLight(0xffffff, 0.3);
+            light.position.set(1, 1, 1).normalize();
+            world.scene.add(light);
+
+            // cube
+            world.scene.add(new THREE.Mesh(new THREE.BoxGeometry(10,10,10),new THREE.MeshBasicMaterial({color : 0xFF0000, opacity:0.3, transparent:true})));
+
+            // axes
+            var origin = new THREE.Vector3(0,0,0);
+            var axes = buildAxes(origin, 100);
+            world.scene.add(axes);
+
+
+            // camera
+            world.camera = buildCamera(world.scene);
+            world.camera.update();
+
+            // renderer
+            world.renderer = new THREE.WebGLRenderer();
+            world.renderer.setClearColor(0xf0f0f0);
+            world.renderer.setPixelRatio(window.devicePixelRatio);
+            world.renderer.setSize(window.innerWidth, window.innerHeight);
+            world.renderer.sortObjects = false;
+
+            $("#container").append(world.renderer.domElement);
+
+            window.addEventListener('resize', onWindowResize, false);
+
+            animate();
+        });
+
+        function mouse2vec(event){
+            return new THREE.Vector3(
+                    (event.clientX / window.innerWidth) * 2 - 1,
+                    -(event.clientY / window.innerHeight) * 2 + 1,
+                    0.0
+            );
+        }
+
+        function animate(){
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render(){
+            world.renderer.render(world.scene, world.camera);
+        }
+
+        function onWindowResize() {
+            world.camera.aspect = window.innerWidth / window.innerHeight;
+            world.camera.updateProjectionMatrix();
+            world.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+    </script>
+</head>
+
+<body>
+
+<div id="container">
+
+</div>
+
+<div id="ui">
+    <span>Interface</span>
+    <div id="ui_container"></div>
+</div>
+
+</body>
+
+</html>
